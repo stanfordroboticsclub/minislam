@@ -4,7 +4,7 @@ from __future__ import division
 import rospy
 import tf2_ros
 from geometry_msgs.msg import Twist, Quaternion, TransformStamped
-from sensor_msgs import LaserScan
+from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 import tf
 
@@ -30,7 +30,7 @@ class ParticleFilter:
 
         self.particles = []
 
-        self.map = 
+        # self.map = 
 
 
     def update_odometery(self):
@@ -51,7 +51,7 @@ class ParticleFilter:
 
 def callback(data):
 
-    print data
+    print data.ranges
 
 def main():
 
