@@ -25,21 +25,24 @@ class Particle:
         pass
 
 class ParticleFilter:
-    def __init__(self, numParticles):
-        self.numParticles = numParticles
+    def __init__(self):
+        self.numParticles = 100
         self.x_size_m = 100
         self.y_size_m = 100
         self.resolution = 0.05
 
-        self.x_size_g = self.x_size_m//self.resolution
-        self.y_size_g = self.y_size_m//self.resolution
+        self.x_size_g = int(self.x_size_m/self.resolution)
+        self.y_size_g = int(self.y_size_m/self.resolution)
 
-        self.map = [[-1] * self.y_size_g) for _ in range(self.x_size_g)]
+        print(self.x_size_g)
+
+        self.map = [[-1] * self.y_size_g for _ in range(self.x_size_g)]
 
         self.map[0][0] = 50
 
         self.world_frame = 'map'
-        self.map_pub = rospy.Publisher(self.world_frame, OccupancyGrid, queue_size=10)
+        self.map_topic = 'map_test'
+        self.map_pub = rospy.Publisher(self.map_topic, OccupancyGrid, queue_size=10)
 
         self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
         #initalise particles
@@ -49,6 +52,8 @@ class ParticleFilter:
         # self.map = 
 
     def publish_map(self):
+        self.time = rospy.Time.now() 
+
         map_msg = OccupancyGrid()
         map_msg.header.stamp = self.time 
         map_msg.header.frame_id = self.world_frame
@@ -57,14 +62,14 @@ class ParticleFilter:
         map_msg.info.width = self.y_size_g
         map_msg.info.height = self.x_size_g
 
-        map_msg.origin.position.x = 0
-        map_msg.origin.position.y = 0
-        map_msg.origin.position.z = 0
+        map_msg.info.origin.position.x = 0
+        map_msg.info.origin.position.y = 0
+        map_msg.info.origin.position.z = 0
         
-        map_msg.origin.orientation.x = 0
-        map_msg.origin.orientation.y = 0
-        map_msg.origin.orientation.z = 0
-        map_msg.origin.orientation.w = 0
+        map_msg.info.origin.orientation.x = 0
+        map_msg.info.origin.orientation.y = 0
+        map_msg.info.origin.orientation.z = 0
+        map_msg.info.origin.orientation.w = 0
 
         map_msg.data = [item for sublist in self.map for item in sublist]
 
