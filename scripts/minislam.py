@@ -49,14 +49,16 @@ class ParticleFilter:
     def get_mean_position(self):
         pass
 
+def callback(data):
 
+    print data
 
 def main():
 
     rospy.init_node('minislam')
-    rospy.Subscriber("turtle1/cmd_vel", LaserScan, callback)
+    rospy.Subscriber("scan", LaserScan, callback)
 
-    pf = ParticleFilter()
+    # pf = ParticleFilter()
 
     rospy.spin()
 
