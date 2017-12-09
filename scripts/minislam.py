@@ -5,8 +5,10 @@ import rospy
 import tf2_ros
 from geometry_msgs.msg import Twist, Quaternion, TransformStamped
 from sensor_msgs.msg import LaserScan
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, OccupancyGrid
 import tf
+
+from threading import Timer
 
 
 class Particle:
@@ -25,13 +27,51 @@ class Particle:
 class ParticleFilter:
     def __init__(self, numParticles):
         self.numParticles = numParticles
+        self.x_size_m = 100
+        self.y_size_m = 100
+        self.resolution = 0.05
 
+        self.x_size_g = self.x_size_m//self.resolution
+        self.y_size_g = self.y_size_m//self.resolution
+
+        self.map = [[-1] * self.y_size_g) for _ in range(self.x_size_g)]
+
+        self.map[0][0] = 50
+
+        self.world_frame = 'map'
+        self.map_pub = rospy.Publisher(self.world_frame, OccupancyGrid, queue_size=10)
+
+        self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
         #initalise particles
 
         self.particles = []
 
         # self.map = 
 
+    def publish_map(self):
+        map_msg = OccupancyGrid()
+        map_msg.header.stamp = self.time 
+        map_msg.header.frame_id = self.world_frame
+
+        map_msg.info.resolution = self.resolution
+        map_msg.info.width = self.y_size_g
+        map_msg.info.height = self.x_size_g
+
+        map_msg.origin.position.x = 0
+        map_msg.origin.position.y = 0
+        map_msg.origin.position.z = 0
+        
+        map_msg.origin.orientation.x = 0
+        map_msg.origin.orientation.y = 0
+        map_msg.origin.orientation.z = 0
+        map_msg.origin.orientation.w = 0
+
+        map_msg.data = [item for sublist in self.map for item in sublist]
+
+        self.map_pub.publish(map_msg)
+
+        map_timer = Timer(0.1, self.publish_map, ())
+        map_timer.start()
 
     def update_odometery(self):
         pass
@@ -45,20 +85,20 @@ class ParticleFilter:
     def add_noise(self):
         pass
 
-
     def get_mean_position(self):
         pass
 
-def callback(data):
+    def callback(self,data):
 
-    print data.ranges
+        print data.ranges
 
 def main():
 
     rospy.init_node('minislam')
-    rospy.Subscriber("scan", LaserScan, callback)
 
-    # pf = ParticleFilter()
+    pf = ParticleFilter()
+
+    pf.publish_map()
 
     rospy.spin()
 
