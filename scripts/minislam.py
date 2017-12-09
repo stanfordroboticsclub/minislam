@@ -31,7 +31,7 @@ class Particle:
 
 class Map:
 
-    def __init__(self,map_topic):
+    def __init__(self,map_topic, world_frame):
         self.x_size_m = 100
         self.y_size_m = 100
         self.resolution = 0.05
@@ -39,9 +39,10 @@ class Map:
         self.x_size_g = int(self.x_size_m/self.resolution)
         self.y_size_g = int(self.y_size_m/self.resolution)
 
-        self.map = [-1] * self.y_size_g*self.x_size_m
+        self.map = [-1] * self.y_size_g*self.x_size_g
 
         self.map_topic = map_topic
+        self.world_frame = world_frame
         self.map_pub = rospy.Publisher(self.map_topic, OccupancyGrid, queue_size=10)
 
     def __getitem__(self, key):
@@ -95,10 +96,10 @@ class ParticleFilter:
         self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
 
         #initialise particles
-        self.particles = [ Particle(0,0,0) for _ in range(self.numParticles)
+        self.particles = [ Particle(0,0,0) for _ in range(self.numParticles) ] 
         self.weights = None
 
-        self.map = Map(self.map_topic)
+        self.map = Map(self.map_topic,self.world_frame)
         self.laser_data = None
 
 
@@ -116,7 +117,7 @@ class ParticleFilter:
     def resample_particles(self):
         self.particles = list(
             np.random.choice(np.array(self.particles), 
-                             size=self.numParticles, replace=True, self.weights))
+                             size=self.numParticles, replace=True, p=self.weights))
 
     def update_map(self):
         pass
@@ -139,11 +140,13 @@ class ParticleFilter:
         rot_mean /= float(self.numParticles)
 
     def callback(self,data):
-        if laser_data==None:
+        if self.laser_data==None:
             self.laser_data = data.ranges
             # self.run()
         else:
             self.laser_data = data.ranges
+
+        self.map.publish_map()
 
     def run(self):
         self.update_odometery() 
@@ -160,7 +163,7 @@ def main():
 
     pf = ParticleFilter()
 
-    pf.publish_map()
+    pf.map.publish_map()
 
     rospy.spin()
 
