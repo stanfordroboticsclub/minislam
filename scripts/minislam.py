@@ -24,9 +24,9 @@ class Particle:
     def simulate_lidar(self,map):
         pass
 
-class ParticleFilter:
+class Map:
+
     def __init__(self):
-        self.numParticles = 100
         self.x_size_m = 100
         self.y_size_m = 100
         self.resolution = 0.05
@@ -34,22 +34,17 @@ class ParticleFilter:
         self.x_size_g = int(self.x_size_m/self.resolution)
         self.y_size_g = int(self.y_size_m/self.resolution)
 
-        print(self.x_size_g)
+        self.map = [-1] * self.y_size_g*self.x_size_m
 
-        self.map = [[-1] * self.y_size_g for _ in range(self.x_size_g)]
-
-        self.map[0][0] = 50
-
-        self.world_frame = 'map'
         self.map_topic = 'map_test'
         self.map_pub = rospy.Publisher(self.map_topic, OccupancyGrid, queue_size=10)
 
-        self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
-        #initalise particles
+    def __getitem__(self, key):
+        return self.map[ key[1] * self.x_size_g + key[0] ]
 
-        self.particles = []
+    def __setitem__(self, key, value):
+        self.map[ key[1] * self.x_size_g + key[0] ] = value
 
-        # self.map = 
 
     def publish_map(self):
         self.time = rospy.Time.now() 
@@ -62,8 +57,8 @@ class ParticleFilter:
         map_msg.info.width = self.y_size_g
         map_msg.info.height = self.x_size_g
 
-        map_msg.info.origin.position.x = 0
-        map_msg.info.origin.position.y = 0
+        map_msg.info.origin.position.x = - self.x_size_m/2
+        map_msg.info.origin.position.y = - self.y_size_m/2
         map_msg.info.origin.position.z = 0
         
         map_msg.info.origin.orientation.x = 0
@@ -77,6 +72,23 @@ class ParticleFilter:
 
         map_timer = Timer(0.1, self.publish_map, ())
         map_timer.start()
+
+        
+
+class ParticleFilter:
+    def __init__(self):
+        self.numParticles = 100
+
+        self.world_frame = 'map'
+
+        self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
+        #initalise particles
+
+        self.particles = []
+
+        self.map = Map()
+
+
 
     def update_odometery(self):
         pass
