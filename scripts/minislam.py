@@ -19,6 +19,9 @@ class Particle:
     def spread_out(self):
         pass
 
+    def simulate_lidar(self,map):
+        pass
+
 class ParticleFilter:
     def __init__(self, numParticles):
         self.numParticles = numParticles
@@ -27,8 +30,19 @@ class ParticleFilter:
 
         self.particles = []
 
+        self.map = 
+
 
     def update_odometery(self):
+        pass
+    
+    def resample_from_lidar(self):
+        pass
+
+    def update_map(self):
+        pass
+
+    def add_noise(self):
         pass
 
 
