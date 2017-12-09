@@ -11,6 +11,7 @@ import tf
 from threading import Timer
 import random
 import math
+import numpy as np
 
 
 class Particle:
@@ -88,24 +89,34 @@ class Map:
 class ParticleFilter:
     def __init__(self):
         self.numParticles = 100
-
         self.world_frame = 'map'
-
         self.map_topic = 'map_test'
 
         self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
 
         #initialise particles
         self.particles = [ Particle(0,0,0) for _ in range(self.numParticles)
-        self.map = Map(self.map_topic)
+        self.weights = None
 
+        self.map = Map(self.map_topic)
         self.laser_data = None
+
+
+        self.map[0,0] = 40
+        self.map[0,0.1] = 50
+        self.map[0,-0.1] = 30
+
 
     def update_odometery(self):
         pass
     
-    def resample_from_lidar(self):
+    def get_particle_weights(self):
         pass
+
+    def resample_particles(self):
+        self.particles = list(
+            np.random.choice(np.array(self.particles), 
+                             size=self.numParticles, replace=True, self.weights))
 
     def update_map(self):
         pass
@@ -130,14 +141,14 @@ class ParticleFilter:
     def callback(self,data):
         if laser_data==None:
             self.laser_data = data.ranges
-            self.run()
+            # self.run()
         else:
             self.laser_data = data.ranges
 
     def run(self):
         self.update_odometery() 
         self.add_noise()
-        self.resample_from_lidar()
+        self.resample_particles()
         self.update_map()
 
         self.get_mean_position()
