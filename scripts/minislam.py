@@ -27,25 +27,27 @@ class Particle:
         self.rot += random.gauss(0, math.pi/6)
 
     def simulate_lidar(curr_map, thetas, range_max): #num_theta is length of lidar array
-        THRESHOLD = 0
+        THRESHOLD = 0.8
         retval = np.empty(thetas.shape[0])
-        drange = np.linspace(0, curr_map.size_m/2, curr_map.resolution/2)
+        drange = np.arange(0, range_max, curr_map.resolution/2)
+
         for x in range(thetas.shape[0]):
-            theta = thetas[x]
+            theta = thetas[x] + self.rot
             dx = math.cos(theta)
             dy = math.sin(theta)
-            min_val = range_max
             
+            disp = float('inf')
+
             for d in drange:
                 dxi = d * dx
                 dyi = d * dy
                 
                 if abs(dxi + self.x) < curr_map.size_m/2 and abs(dyi + self.y) < curr_map.size_m/2
-                and curr_map.map[self.x + dxi, self.y + dyi] > THRESHOLD:
+                                and curr_map.map[self.x + dxi, self.y + dyi] > THRESHOLD:
                     disp = math.sqrt(dxi * dxi + dyi * dyi)
-                    if disp < min_val:
-                        min_val = disp
-            retval[x] = min_val
+                    break
+
+            retval[x] = disp
         return retval
 
 class Map:
