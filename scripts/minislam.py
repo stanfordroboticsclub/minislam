@@ -26,8 +26,25 @@ class Particle:
         self.y += random.gauss(0, 0.3)
         self.rot += random.gauss(0, math.pi/6)
 
-    def simulate_lidar(self,map):
-        pass
+    def simulate_lidar(curr_map, thetas, range_max): #num_theta is length of lidar array
+        THRESHOLD = 0
+        thetas = thetas + self.rot
+        drange = np.linspace(0, curr_map.size_m/2, curr_map.resolution/2)
+        for theta in thetas:
+            dx = math.cos(theta)
+            dy = math.sin(theta)
+            min_val = range_max
+            
+            for d in drange:
+                dxi = d * dx
+                dyi = d * dy
+                
+                if abs(dxi + self.x) < curr_map.size_m/2 and abs(dyi + self.y) < curr_map.size_m/2
+                and curr_map.map[self.x + dxi, self.y + dyi] > THRESHOLD:
+                    disp = math.sqrt(dxi * dxi + dyi * dyi)
+                    if disp < min_val:
+                        min_val = disp
+        return min_val
 
 class Map:
 
@@ -60,7 +77,6 @@ class Map:
 
     def set_raw(self, x , y, value):
         self.map[ y * self.x_size_g + x ] = value
-
 
     def publish_map(self):
         self.time = rospy.Time.now() 
