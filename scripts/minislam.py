@@ -85,6 +85,7 @@ class Map:
         map_msg.data = self.map
 
         self.map_pub.publish(map_msg)
+        print "map published"
         
 
 class ParticleFilter:
@@ -92,8 +93,6 @@ class ParticleFilter:
         self.numParticles = 100
         self.world_frame = 'map'
         self.map_topic = 'map_test'
-
-        self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
 
         #initialise particles
         self.particles = [ Particle(0,0,0) for _ in range(self.numParticles) ] 
@@ -107,6 +106,8 @@ class ParticleFilter:
         self.map[0,0.1] = 50
         self.map[0,-0.1] = 30
 
+        rospy.Subscriber("scan", LaserScan, self.scan_callback)
+
 
     def update_odometery(self):
         pass
@@ -114,7 +115,6 @@ class ParticleFilter:
     def get_particle_weights(self):
         for particle in self.particles:
             sim_scan = particle.simulate_lidar(self.map)
-
             
 
     def resample_particles(self):
@@ -127,19 +127,21 @@ class ParticleFilter:
 
     def update_map(self):
         for dist,angle in zip(self.laser_data, np.arange(self.angle_min,self.angle_max,self.angle_increment)):
-            for d in np.arange(0, dist, self.resolution/2):
-                ind =( self.x_mean + d*math.cos(self.rot_mean), self.y_mean + d*math.sin(self.rot_mean) )
 
+            if dist > self.range_min and dist < self.range_max and dist != float('inf'):
+                for d in np.arange(0, dist, self.map.resolution/2):
+                    ind =( self.x_mean + d*math.cos(self.rot_mean), self.y_mean + d*math.sin(self.rot_mean) )
+
+                    if self.map[ind] == -1:
+                        self.map[ind] = 100
+                    else:
+                        self.map[ind] *= 0.5
+                
+                ind =( self.x_mean + dist*math.cos(self.rot_mean), self.y_mean + dist*math.sin(self.rot_mean) )
                 if self.map[ind] == -1:
-                    self.map[ind] = 100
+                    self.map[ind] = 0
                 else:
-                    self.map[ind] *= 0.5
-            
-            ind =( self.x_mean + dist*math.cos(self.rot_mean), self.y_mean + dist*math.sin(self.rot_mean) )
-            if self.map[ind] == -1:
-                self.map[ind] = 0
-            else:
-                self.map[ind] = 100 - (0.5 * (100 - self.map[ind]))
+                    self.map[ind] = 100 - (0.5 * (100 - self.map[ind]))
 
 
     def add_noise(self):
@@ -147,45 +149,46 @@ class ParticleFilter:
             particle.spread_out()
 
     def get_mean_position(self):
-        x_mean = 0
-        y_mean = 0
-        rot_mean = 0
+        self.x_mean = 0
+        self.y_mean = 0
+        self.rot_mean = 0
         for particle in self.particles:
-            x_mean += particle.x
-            y_mean += particle.y
-            rot_mean += particle.rot
+            self.x_mean += particle.x
+            self.y_mean += particle.y
+            self.rot_mean += particle.rot
 
         self.x_mean /= float(self.numParticles)
         self.y_mean /= float(self.numParticles)
         self.rot_mean /= float(self.numParticles)
 
-    def callback(self,data):
+    def scan_callback(self,data):
+        print 'got scan'
         self.angle_min = data.angle_min
         self.angle_max = data.angle_max
         self.angle_increment = data.angle_increment
         self.time_increment = data.time_increment
-        self.scan_time = data.scan
+        self.scan_time = data.scan_time
         self.range_min = data.range_min
         self.range_max = data.range_max
 
         if self.laser_data==None:
+            print 'start'
             self.laser_data = data.ranges
             self.run()
         else:
             self.laser_data = data.ranges
 
-        self.map.publish_map()
-
     def run(self):
+
         self.update_odometery() 
         # self.add_noise()
         # self.resample_particles()
+        self.get_mean_position()
         self.update_map()
 
-        self.get_mean_position()
         self.map.publish_map()
 
-        main_timer = Timer(0.1, self.run, ())
+        main_timer = Timer(0.5, self.run, ())
         main_timer.start()
 
 def main():
