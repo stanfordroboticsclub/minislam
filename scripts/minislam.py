@@ -14,8 +14,7 @@ import math
 import numpy as np
 
 
-class Particle:
-
+"""class Particle:
     def __init__(self, x, y, rot):
         self.x = x
         self.y = y
@@ -28,18 +27,21 @@ class Particle:
 
     def simulate_lidar(self,map):
         pass
+"""
 
 class Map:
-
-    def __init__(self,map_topic, world_frame):
-        self.x_size_m = 100
-        self.y_size_m = 100
-        self.resolution = 0.05
-
+    """ Map object
+    setting/getting is in meters
+    main field of interest is self.grid
+    """
+    def __init__(self, map_topic, world_frame, m=100, n=100, res=0.05):
+        self.x_size_m = m
+        self.y_size_m = n
+        self.resolution = res
         self.x_size_g = int(self.x_size_m/self.resolution)
         self.y_size_g = int(self.y_size_m/self.resolution)
 
-        self.map = [-1] * self.y_size_g*self.x_size_g
+        self.grid = np.randint(0, 2, size=(self.y_size_g, self.x_size_g)) #changed this to row
 
         self.map_topic = map_topic
         self.world_frame = world_frame
@@ -48,19 +50,18 @@ class Map:
     def __getitem__(self, key):
         x = int((key[0] + self.x_size_m/2)/self.resolution)
         y = int((key[1] + self.y_size_m/2)/self.resolution)
-        return self.map[ y * self.x_size_g + x ]
+        return self.grid[y * self.x_size_g + x]
 
     def __setitem__(self, key, value):
         x = int((key[0] + self.x_size_m/2)/self.resolution)
         y = int((key[1] + self.y_size_m/2)/self.resolution)
-        self.map[ y * self.x_size_g + x ] = value
+        self.grid[ y * self.x_size_g + x ] = value
 
     def get_raw(self, x , y):
-        return self.map[ y * self.x_size_g + x ]
+        return self.grid[ y * self.x_size_g + x ]
 
     def set_raw(self, x , y, value):
-        self.map[ y * self.x_size_g + x ] = value
-
+        self.grid[ y * self.x_size_g + x ] = value
 
     def publish_map(self):
         self.time = rospy.Time.now() 
@@ -82,45 +83,64 @@ class Map:
         map_msg.info.origin.orientation.z = 0
         map_msg.info.origin.orientation.w = 0
 
-        map_msg.data = self.map
+        map_msg.data = self.grid.reshape(self.x_size_g * self.y_size_g)
 
         self.map_pub.publish(map_msg)
         
 
 class ParticleFilter:
-    def __init__(self):
-        self.numParticles = 100
+    def __init__(self, num_p = 100):
+        self.num_particles = num_p
         self.world_frame = 'map'
         self.map_topic = 'map_test'
 
         self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
 
         #initialise particles
-        self.particles = [ Particle(0,0,0) for _ in range(self.numParticles) ] 
-        self.weights = None
+        self.particles = np.zeros((2, num_p))
+        self.rotations = np.rand(0, 2 * math.pi, size=num_p)
+        self.weights = np.empty(self.num_particles)
 
-        self.map = Map(self.map_topic,self.world_frame)
+        self.map= Map(self.map_topic,self.world_frame)
         self.laser_data = None
 
+        self.map.grid[0,0] = 40
+        self.map.grid[0,0.1] = 50
+        self.map.grid[0,-0.1] = 30
 
-        self.map[0,0] = 40
-        self.map[0,0.1] = 50
-        self.map[0,-0.1] = 30
 
-
-    def update_odometery(self):
+    def update_odometry(self):
         pass
     
     def get_particle_weights(self):
-        pass
+        num_theta = len(data.ranges)
+        thetas = np.linspace(0, 2 * math.pi, num=num_theta)
+        th, rot = np.meshgrid(thetas, self.rotations)
+        #TODO: check that each row corresponds to a particle, each column to an angle
+        angles = (th + rot)  #might be greater than 2pi
+        
+        x = np.linspace(-self.map.x_size_m/2, self.map.x_size_m/2, self.laser_data.size[0])
+        for idx, theta in np.ndenumerate(angles):
+            min_val = self.maxrange
+            for x_j in x:
+                tan_th = math.tan(theta)
+                y = tan_th * x + self.particles[1][idx[0]] - tan_th * self.particles[0][idx[0]]
+            [idx[1]]
 
-    def resample_particles(self):
+
+        for i in range(self.num_particles):
+            self.weights[i] = np.linalg.norm(self.laser_data - sim[i, :])
+
+    def resample_particles(self):#TODO: redo
         self.particles = list(
             np.random.choice(np.array(self.particles), 
                              size=self.numParticles, replace=True, p=self.weights))
 
     def update_map(self):
-        pass
+        #TODO update this
+
+        
+        pass 
 
     def add_noise(self):
         for particle in self.particles:
@@ -130,6 +150,7 @@ class ParticleFilter:
         x_mean = 0
         y_mean = 0
         rot_mean = 0
+
         for particle in self.particles:
             x_mean += particle.x
             y_mean += particle.y
@@ -140,11 +161,17 @@ class ParticleFilter:
         rot_mean /= float(self.numParticles)
 
     def callback(self,data):
+        self.maxrange = data.range_max
+
         if self.laser_data==None:
-            self.laser_data = data.ranges
+            print('sad') #TODO remove this or fix
             # self.run()
-        else:
-            self.laser_data = data.ranges
+
+        self.laser_data = np.array(data.ranges)
+        
+        # makes sure all values are in range
+        self.laser_data[self.laser_data < data.range_min] = data.range_min
+        self.laser_data[self.laser_data > data.range_max] = data.range_max
 
         self.map.publish_map()
 
