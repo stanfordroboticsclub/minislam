@@ -112,15 +112,35 @@ class ParticleFilter:
         pass
     
     def get_particle_weights(self):
-        pass
+        for particle in self.particles:
+            sim_scan = particle.simulate_lidar(self.map)
+
+            
 
     def resample_particles(self):
-        self.particles = list(
-            np.random.choice(np.array(self.particles), 
-                             size=self.numParticles, replace=True, p=self.weights))
+        # self.particles = list(
+        inds = np.random.choice(np.arange(self.numParticles), 
+                             size=self.numParticles, replace=True, p=self.weights)
+
+        temp = [ self.particles[i] for i in inds]
+        self.particles = temp
 
     def update_map(self):
-        pass
+        for dist,angle in zip(self.laser_data, np.arange(self.angle_min,self.angle_max,self.angle_increment)):
+            for d in np.arange(0, dist, self.resolution/2):
+                ind =( self.x_mean + d*math.cos(self.rot_mean), self.y_mean + d*math.sin(self.rot_mean) )
+
+                if self.map[ind] == -1:
+                    self.map[ind] = 100
+                else:
+                    self.map[ind] *= 0.5
+            
+            ind =( self.x_mean + dist*math.cos(self.rot_mean), self.y_mean + dist*math.sin(self.rot_mean) )
+            if self.map[ind] == -1:
+                self.map[ind] = 0
+            else:
+                self.map[ind] = 100 - (0.5 * (100 - self.map[ind]))
+
 
     def add_noise(self):
         for particle in self.particles:
@@ -135,14 +155,22 @@ class ParticleFilter:
             y_mean += particle.y
             rot_mean += particle.rot
 
-        x_mean /= float(self.numParticles)
-        y_mean /= float(self.numParticles)
-        rot_mean /= float(self.numParticles)
+        self.x_mean /= float(self.numParticles)
+        self.y_mean /= float(self.numParticles)
+        self.rot_mean /= float(self.numParticles)
 
     def callback(self,data):
+        self.angle_min = data.angle_min
+        self.angle_max = data.angle_max
+        self.angle_increment = data.angle_increment
+        self.time_increment = data.time_increment
+        self.scan_time = data.scan
+        self.range_min = data.range_min
+        self.range_max = data.range_max
+
         if self.laser_data==None:
             self.laser_data = data.ranges
-            # self.run()
+            self.run()
         else:
             self.laser_data = data.ranges
 
@@ -150,20 +178,21 @@ class ParticleFilter:
 
     def run(self):
         self.update_odometery() 
-        self.add_noise()
-        self.resample_particles()
+        # self.add_noise()
+        # self.resample_particles()
         self.update_map()
 
         self.get_mean_position()
         self.map.publish_map()
+
+        main_timer = Timer(0.1, self.run, ())
+        main_timer.start()
 
 def main():
 
     rospy.init_node('minislam')
 
     pf = ParticleFilter()
-
-    pf.map.publish_map()
 
     rospy.spin()
 
