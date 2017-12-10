@@ -130,14 +130,14 @@ class ParticleFilter:
 
             if dist > self.range_min and dist < self.range_max and dist != float('inf'):
                 for d in np.arange(0, dist, self.map.resolution/2):
-                    ind =( self.x_mean + d*math.cos(self.rot_mean), self.y_mean + d*math.sin(self.rot_mean) )
+                    ind =( self.x_mean + d*math.cos(self.rot_mean+ angle), self.y_mean + d*math.sin(self.rot_mean + angle) )
 
                     if self.map[ind] == -1:
                         self.map[ind] = 100
                     else:
                         self.map[ind] *= 0.5
                 
-                ind =( self.x_mean + dist*math.cos(self.rot_mean), self.y_mean + dist*math.sin(self.rot_mean) )
+                ind =( self.x_mean + dist*math.cos(self.rot_mean + angle), self.y_mean + dist*math.sin(self.rot_mean + angle) )
                 if self.map[ind] == -1:
                     self.map[ind] = 0
                 else:
