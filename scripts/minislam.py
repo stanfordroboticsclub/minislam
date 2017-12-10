@@ -14,20 +14,20 @@ import math
 import numpy as np
 
 
-"""class Particle:
-    def __init__(self, x, y, rot):
-        self.x = x
-        self.y = y
-        self.rot = rot
+# """class Particle:
+#     def __init__(self, x, y, rot):
+#         self.x = x
+#         self.y = y
+#         self.rot = rot
 
-    def spread_out(self):
-        self.x += random.gauss(0, 0.3)
-        self.y += random.gauss(0, 0.3)
-        self.rot += random.gauss(0, math.pi/6)
+#     def spread_out(self):
+#         self.x += random.gauss(0, 0.3)
+#         self.y += random.gauss(0, 0.3)
+#         self.rot += random.gauss(0, math.pi/6)
 
-    def simulate_lidar(self,map):
-        pass
-"""
+#     def simulate_lidar(self,map):
+#         pass
+# """
 
 class Map:
     """ Map object
@@ -97,8 +97,8 @@ class ParticleFilter:
         self.scan_sub = rospy.Subscriber("scan", LaserScan, self.callback)
 
         #initialise particles
-        self.particles = np.zeros((2, num_p))
-        self.rotations = np.rand(0, 2 * math.pi, size=num_p)
+        self.particles = np.zeros((3, num_p))
+        # self.rotations = np.rand(0, 2 * math.pi, size=num_p)
         self.weights = np.empty(self.num_particles)
 
         self.map= Map(self.map_topic,self.world_frame)
@@ -132,9 +132,10 @@ class ParticleFilter:
             self.weights[i] = np.linalg.norm(self.laser_data - sim[i, :])
 
     def resample_particles(self):#TODO: redo
-        self.particles = list(
-            np.random.choice(np.array(self.particles), 
-                             size=self.numParticles, replace=True, p=self.weights))
+        idxs = np.random.choice( self.num_particles, size=self.numParticles, replace=True, p=self.weights))
+        self.particles = self.particles[idxs]
+
+        
 
     def update_map(self):
         #TODO update this
