@@ -129,9 +129,12 @@ class ParticleFilter:
         pass
     
     def get_particle_weights(self):
+        request_angles = np.arange(self.angle_min, self.angle_max, self.angle_increment)
+
+        freeze_laser = self.laser_data
         for particle in self.particles:
-            sim_scan = particle.simulate_lidar(self.map)
-            
+            sim_scan = particle.simulate_lidar(self.map, request_angles, self.range_max)
+
 
     def resample_particles(self):
         # self.particles = list(
