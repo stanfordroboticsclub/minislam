@@ -22,12 +22,14 @@ class Particle:
         self.rot = rot
 
     def spread_out(self):
-        self.x += random.gauss(0, 0.3)
-        self.y += random.gauss(0, 0.3)
-        self.rot += random.gauss(0, math.pi/6)
+        drive = random.gauss(0, 0.05)
+        side = random.gauss(0, 0.01) 
+        self.x += math.cos(self.rot) * drive + math.sin(self.rot) * side
+        self.y += math.sin(self.rot) * drive + math.cos(self.rot) * side
+        self.rot += random.gauss(0, math.pi/6/12)
 
-    def simulate_lidar(curr_map, thetas, range_max): #num_theta is length of lidar array
-        THRESHOLD = 0.8
+    def simulate_lidar(self,curr_map, thetas, range_max): #num_theta is length of lidar array
+        THRESHOLD = 0.7
         retval = np.empty(thetas.shape[0])
         drange = np.arange(0, range_max, curr_map.resolution/2)
 
@@ -42,8 +44,8 @@ class Particle:
                 dxi = d * dx
                 dyi = d * dy
                 
-                if abs(dxi + self.x) < curr_map.size_m/2 and abs(dyi + self.y) < curr_map.size_m/2
-                                and curr_map.map[self.x + dxi, self.y + dyi] > THRESHOLD:
+                if abs(dxi + self.x) < curr_map.x_size_m/2 and abs(dyi + self.y) < curr_map.y_size_m/2 \
+                                and curr_map[self.x + dxi, self.y + dyi] > THRESHOLD:
                     disp = math.sqrt(dxi * dxi + dyi * dyi)
                     break
 
@@ -110,7 +112,7 @@ class Map:
 
 class ParticleFilter:
     def __init__(self):
-        self.numParticles = 100
+        self.numParticles = 5
         self.world_frame = 'map'
         self.map_topic = 'map_test'
 
@@ -133,7 +135,7 @@ class ParticleFilter:
         pass
     
     def get_particle_weights(self):
-        request_angles = np.arange(self.angle_min, self.angle_max, self.angle_increment)
+        request_angles = np.arange(self.angle_min, self.angle_max+self.angle_increment, self.angle_increment)
 
         freeze_laser = self.laser_data
         
@@ -142,10 +144,27 @@ class ParticleFilter:
         for pi in range(lim):
             particle = self.particles[pi]
             sim_scan = particle.simulate_lidar(self.map, request_angles, self.range_max)
-            weights[pi] = np.linalg.norm(np.array(freeze_laser) - sim_scan)
+            print sim_scan
+
+            # print len(freeze_laser)
+            # print sim_scan.shape
+            # weights[pi] = 1 / np.nansum ( (np.array(freeze_laser) - sim_scan)**2 )
+
+            su = 0
+            for x,y in zip( freeze_laser, sim_scan):
+                if x==float('inf'): x=self.range_max
+                if y==float('inf'): y=self.range_max
+                # print x,y
+                su += (x - y)**2
+
+            weights[pi] = 1/su
+
 
         tot = np.sum(weights)
-        return weights / tot
+        self.weights = weights / tot
+        print self.weights
+
+        # return weights / tot
             
 
 
@@ -153,6 +172,8 @@ class ParticleFilter:
         # self.particles = list(
         inds = np.random.choice(np.arange(self.numParticles), 
                              size=self.numParticles, replace=True, p=self.weights)
+
+        # inds =[ max( (self.weights[i], i ) for i in range(self.numParticles))[1] ] * self.numParticles
 
         temp = [ self.particles[i] for i in inds]
         self.particles = temp
@@ -193,8 +214,9 @@ class ParticleFilter:
         self.y_mean /= float(self.numParticles)
         self.rot_mean /= float(self.numParticles)
 
+        print self.x_mean, self.y_mean,self.rot_mean
+
     def scan_callback(self,data):
-        print 'got scan'
         self.angle_min = data.angle_min
         self.angle_max = data.angle_max
         self.angle_increment = data.angle_increment
@@ -213,9 +235,15 @@ class ParticleFilter:
     def run(self):
 
         self.update_odometery() 
-        # self.add_noise()
-        # self.resample_particles()
+        print 'add noise'
+        self.add_noise()
+        print 'get wieghts'
+        self.get_particle_weights()
+        print 'resample'
+        self.resample_particles()
+        print 'mean postiion'
         self.get_mean_position()
+        print 'update map'
         self.update_map()
 
         self.map.publish_map()
