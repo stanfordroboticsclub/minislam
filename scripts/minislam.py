@@ -28,9 +28,10 @@ class Particle:
 
     def simulate_lidar(curr_map, thetas, range_max): #num_theta is length of lidar array
         THRESHOLD = 0
-        thetas = thetas + self.rot
+        retval = np.empty(thetas.shape[0])
         drange = np.linspace(0, curr_map.size_m/2, curr_map.resolution/2)
-        for theta in thetas:
+        for x in range(thetas.shape[0]):
+            theta = thetas[x]
             dx = math.cos(theta)
             dy = math.sin(theta)
             min_val = range_max
@@ -44,7 +45,8 @@ class Particle:
                     disp = math.sqrt(dxi * dxi + dyi * dyi)
                     if disp < min_val:
                         min_val = disp
-        return min_val
+            retval[x] = min_val
+        return retval
 
 class Map:
 
