@@ -7,7 +7,7 @@ class Grid:
         self.n = n
         self.max_range = max_r
         self.grid = np.random.choice([0, 1], p = [0.9, 0.1], size=(m, n))
-        self.loc = np.array([np.random.randint(0, m), np.random.randint(0, n)])
+        self.loc = (np.random.randint(0, m), np.random.randint(0, n))
         self.rot = np.random.uniform(0, 2 * math.pi)
         while (self.grid[self.loc] != 0):
             self.loc = (np.random.randint(0, m), np.random.randint(0, n))
@@ -23,7 +23,7 @@ class Grid:
             y = particle[1]
             dx = math.cos(theta)
             dy = math.sin(theta)
-            while (x >= 0 and x < self.grid.shape[0] and y >= 0 and y < self.grid.shape[1]):
+            while (x >= 0 and x <= self.m - 1 and y >= 0 and y <= self.n - 1):
                 if (self.grid[x, y] > 0):
                     dx = x - particle[0]
                     dy = y - particle[1]
@@ -48,12 +48,15 @@ class Grid:
     def move(self):
         self.rot = np.random.normal(loc=self.rot, scale=math.pi/8)
         r = np.random.randint(3, 10)
-        d = ([math.cos(self.rot), math.sin(self.rot)])
+        dx = math.cos(self.rot)
+        dy = math.sin(self.rot)
+        steps = 0
         new_loc = self.loc
-        while (steps < r and new_loc[0] >= 0 and new_loc[0] < self.m and new_loc[1] >= 0 and
-               new_loc[1] < self.n and self.grid[new_loc] != 1):
-            new_loc += d
-        ####TODO change to do-while or something
+        while (steps < r and new_loc[0] >= 0 and new_loc[0] <= self.m - 1 and new_loc[1] >= 0 and
+               new_loc[1] <= self.n - 1 and self.grid[new_loc] != 1):
+            self.loc = new_loc
+            new_loc = (new_loc[0] + dx, new_loc[1] + dy)
+            steps += 1
             
         self.grid[self.loc] = 0
         self.loc = new_loc
@@ -104,8 +107,8 @@ class ParticleFilter:
         self.resample_particles()
         """
         print(self.map.grid)
-        print(self.particles())
-        print(self.weights())
+        print(self.particles)
+        print(self.weights)
         """
                 
 def main():
