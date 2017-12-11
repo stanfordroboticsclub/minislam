@@ -70,6 +70,7 @@ class ParticleFilter:
         self.map = Grid(m, n, num_theta, max_r)
         self.num_p = num_particles
         self.weights = 1.0 / num_particles * np.ones(num_particles)
+        self.stats = []
         possibilities = self.map.unoccupied()
         np.random.shuffle(possibilities)
         indices = possibilities[0:num_particles]
@@ -88,9 +89,9 @@ class ParticleFilter:
             p_dists = self.map.observe_lidar(self.particles[:, p])
             self.weights[p] = np.linalg.norm(dists - p_dists)
 
-        #self.weights[p] = norm(0, 100).pdf(self.weights[p])
-        max_w = np.amax(self.weights)
-        self.weights = max_w - self.weights
+            #self.weights[p] = norm(0, 100).pdf(self.weights[p])
+        #max_w = np.amax(self.weights)
+        #self.weights = max_w - self.weights
         tot = np.sum(self.weights)
         self.weights = self.weights / tot
 
@@ -106,7 +107,7 @@ class ParticleFilter:
         self.particles = new_part + noise
 
     def step(self):
-        self.map.move()
+        #self.map.move()
         self.calc_weights()
         self.resample_particles()
         corr = np.empty((2, 1))
@@ -114,9 +115,17 @@ class ParticleFilter:
         corr[1, 0] = self.map.loc[1]
         diff = self.particles[0:2, :] - corr
         min_value = 1000000
+        self.stats = []
         for x in range(diff.shape[1]):
-            if np.linalg.norm(diff) < min_value:
-                min_value = np.linalg.norm(diff)
+            d = np.linalg.norm(diff[:, x])
+            if d < min_value:
+                min_value = d
+            self.stats.append(min_value)
+        tot = 0
+        for x in self.stats:
+            tot += x
+        tot /= len(self.stats)
+        #print(tot)
         print(min_value)
         
         """
