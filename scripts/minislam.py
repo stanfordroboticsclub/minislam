@@ -28,10 +28,28 @@ class Particle:
         self.y += math.sin(self.rot) * drive + math.cos(self.rot) * side
         self.rot += random.gauss(0, math.pi/6/12)
 
+    def get_lidar_prob(self,map, angles,ranges):
+
+        log_prob = 0
+        for angle,dist in zip(angles , ranges):
+            x_impact = self.x + dist * math.cos(self.rot + angle)
+            y_impact = self.y + dist * math.sin(self.rot + angle)
+
+            value = map[x_impact, y_impact]
+
+            if value == -1:
+                continue
+
+            log_prob += math.log( value/float(100) )
+
+        return log_prob
+
+
     def simulate_lidar(self,curr_map, thetas, range_max): #num_theta is length of lidar array
-        THRESHOLD = 0.7
         retval = np.empty(thetas.shape[0])
         drange = np.arange(0, range_max, curr_map.resolution/2)
+
+
 
         for x in range(thetas.shape[0]):
             theta = thetas[x] + self.rot
@@ -136,35 +154,14 @@ class ParticleFilter:
     
     def get_particle_weights(self):
         request_angles = np.arange(self.angle_min, self.angle_max+self.angle_increment, self.angle_increment)
-
         freeze_laser = self.laser_data
-        
-        lim = len(self.particles)
-        weights = np.empty(lim)
-        for pi in range(lim):
-            particle = self.particles[pi]
-            sim_scan = particle.simulate_lidar(self.map, request_angles, self.range_max)
-            print sim_scan
 
-            # print len(freeze_laser)
-            # print sim_scan.shape
-            # weights[pi] = 1 / np.nansum ( (np.array(freeze_laser) - sim_scan)**2 )
+        weights = [   particle.get_lidar_prob(self.map, request_angles, freeze_laser) for particle in self.particles]
 
-            su = 0
-            for x,y in zip( freeze_laser, sim_scan):
-                if x==float('inf'): x=self.range_max
-                if y==float('inf'): y=self.range_max
-                # print x,y
-                su += (x - y)**2
-
-            weights[pi] = 1/su
-
-
-        tot = np.sum(weights)
+        tot = sum(weights)
         self.weights = weights / tot
         print self.weights
 
-        # return weights / tot
             
 
 
