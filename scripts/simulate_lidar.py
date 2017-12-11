@@ -1,5 +1,7 @@
+import gi
 import numpy as np
 import math
+from gi.repository import Gtk
 
 class Grid:
     def __init__(self, m, n, num_theta, max_r):
@@ -102,19 +104,38 @@ class ParticleFilter:
         self.particles = new_part + noise
 
     def step(self):
-        self.map.move()
+        #self.map.move()
         self.calc_weights()
         self.resample_particles()
+        corr = np.empty((2, 1))
+        corr[0, 0] = self.map.loc[0]
+        corr[1, 0] = self.map.loc[1]
+        diff = self.particles[0:2, :] - corr
+        min_value = 1000000
+        for x in range(diff.shape[1]):
+            if np.linalg.norm(diff) < min_value:
+                min_value = np.linalg.norm(diff)
+        print(min_value)
         """
+        print(self.map.loc)
+        print(self.map.rot)
+        
         print(self.map.grid)
         print(self.particles)
         print(self.weights)
         """
-                
+
+class MapWindow(Gtk.Window):
+
+    def __init__(self):
+        Gtk.Window.__init__(self, title="Map Comparison")
+        
+
 def main():
-    pfilter = ParticleFilter(100, 100, 1000, 20, 8)
-    for x in range(10):
+    pfilter = ParticleFilter(100, 100, 1000, 100, 8)
+    for x in range(20):
         pfilter.step()
+    
 
 if __name__ == "__main__":
     main()
