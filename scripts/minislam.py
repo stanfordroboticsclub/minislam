@@ -25,16 +25,17 @@ class Particle:
     def copy(self):
         return Particle(self.x, self.y ,self.rot)
 
-    def spread_out(self):
-        # drive = random.gauss(0, 0.5)
-        # side = random.gauss(0, 0.1) 
-        # self.x += math.cos(self.rot) * drive + math.sin(self.rot) * side
-        # self.y += math.sin(self.rot) * drive + math.cos(self.rot) * side
+    def spread_out(self,std):
+        drive = random.gauss(0, std)
+        side = random.gauss(0, std*0.5) 
+        self.x += math.cos(self.rot) * drive + math.sin(self.rot) * side
+        self.y += math.sin(self.rot) * drive + math.cos(self.rot) * side
 
-        self.x += random.gauss(0, 0.1)
-        self.y += random.gauss(0, 0.1) 
-        self.rot += random.gauss(0, math.pi/6)
-        # self.rot = random.random() * 2*math.pi 
+        # self.x += random.gauss(0, std)
+        # self.y += random.gauss(0, std) 
+        self.rot += random.gauss(0, 4*std)
+
+        # self.rot += random.gauss(0, math.pi/6)
 
     def get_lidar_prob(self,map, angles,ranges):
 
@@ -149,9 +150,11 @@ class Map:
 
 class ParticleFilter:
     def __init__(self):
-        self.numParticles = 1000
+        self.numParticles = 100
         self.world_frame = 'map'
         self.map_topic = 'map_test'
+
+        self.trans = tf2_ros.TransformBroadcaster()
 
         #initialise particles
         self.particles = [ Particle(0,0,0) for _ in range(self.numParticles) ] 
@@ -213,6 +216,8 @@ class ParticleFilter:
         self.particles = temp
 
     def update_map(self):
+
+        ratio = 0.95
         for dist,angle in zip(self.laser_data, np.arange(self.angle_min,self.angle_max,self.angle_increment)):
 
             if dist > self.range_min and dist < self.range_max and dist != float('inf'):
@@ -223,8 +228,7 @@ class ParticleFilter:
                     # else:
                     #     self.map[ind] *= 0.2
 
-                    self.map[ind] *= 0.5
-
+                    self.map[ind] *= ratio
 
                 feature_size =3*self.map.resolution 
                 for d in np.arange(-feature_size, feature_size  , self.map.resolution/4):
@@ -238,13 +242,13 @@ class ParticleFilter:
                         continue
 
                     target =100 * (feature_size - math.fabs(d)) / feature_size 
-                    self.map[ind] =  0.5 * target + 0.5 * self.map[ind]
+                    self.map[ind] =  (1-ratio) * target + ratio * self.map[ind]
                 
 
 
-    def add_noise(self):
+    def add_noise(self,std):
         for particle in self.particles:
-            particle.spread_out()
+            particle.spread_out(std)
 
     def get_mean_position(self):
         self.x_mean = 0
@@ -289,25 +293,51 @@ class ParticleFilter:
         else:
             self.laser_data = data.ranges
 
+    def send_trans(self):
+        q = tf.transformations.quaternion_from_euler(0, 0, self.rot_mean)
+        self.quat = Quaternion(*q)
+
+        transform = TransformStamped()
+        transform.header.stamp = self.map.time
+        transform.header.frame_id = self.world_frame
+        transform.child_frame_id = 'laser'
+
+        transform.transform.translation.x = self.x_mean
+        transform.transform.translation.y = self.y_mean
+        transform.transform.translation.z = 0.0
+        transform.transform.rotation = self.quat
+
+        self.trans.sendTransform(transform)
+
     def run(self):
 
         self.update_odometery() 
         print 'add noise'
-        self.add_noise()
-        print 'get wieghts'
-        self.get_particle_weights()
 
-        print 'resample'
+        # self.add_noise(0.1)
+        # self.get_particle_weights()
+        # self.resample_particles()
+
+        self.add_noise(0.15)
+        self.get_particle_weights()
         self.resample_particles()
 
-        print 'mean postiion'
+        self.add_noise(0.05)
+        self.get_particle_weights()
+        self.resample_particles()
+
+        self.add_noise(0.01)
+        self.get_particle_weights()
+        self.resample_particles()
+
         self.get_mean_position()
-        print 'update map'
         self.update_map()
 
         self.map.publish_map()
 
-        main_timer = Timer(0.1, self.run, ())
+        self.send_trans()
+
+        main_timer = Timer(0.01, self.run, ())
         main_timer.start()
 
 def main():
