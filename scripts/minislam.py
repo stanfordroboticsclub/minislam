@@ -32,6 +32,8 @@ class Particle:
 
         log_prob = 0
         for angle,dist in zip(angles , ranges):
+            if dist == float('inf'):
+                continue
             x_impact = self.x + dist * math.cos(self.rot + angle)
             y_impact = self.y + dist * math.sin(self.rot + angle)
 
@@ -40,7 +42,12 @@ class Particle:
             if value == -1:
                 continue
 
-            log_prob += math.log( value/float(100) )
+            try:
+                # log_prob += math.log( value/float(100)+1 )
+                log_prob +=  value/float(100) 
+            except ValueError:
+                print value
+                raise
 
         return log_prob
 
@@ -73,8 +80,8 @@ class Particle:
 class Map:
 
     def __init__(self,map_topic, world_frame):
-        self.x_size_m = 100
-        self.y_size_m = 100
+        self.x_size_m = 40
+        self.y_size_m = 40
         self.resolution = 0.05
 
         self.x_size_g = int(self.x_size_m/self.resolution)
@@ -122,7 +129,7 @@ class Map:
         map_msg.info.origin.orientation.z = 0
         map_msg.info.origin.orientation.w = 0
 
-        map_msg.data = self.map
+        map_msg.data = self.map[:]
 
         self.map_pub.publish(map_msg)
         print "map published"
@@ -130,7 +137,7 @@ class Map:
 
 class ParticleFilter:
     def __init__(self):
-        self.numParticles = 5
+        self.numParticles = 1000
         self.world_frame = 'map'
         self.map_topic = 'map_test'
 
@@ -142,10 +149,6 @@ class ParticleFilter:
         self.laser_data = None
 
 
-        self.map[0,0] = 40
-        self.map[0,0.1] = 50
-        self.map[0,-0.1] = 30
-
         rospy.Subscriber("scan", LaserScan, self.scan_callback)
 
 
@@ -156,11 +159,16 @@ class ParticleFilter:
         request_angles = np.arange(self.angle_min, self.angle_max+self.angle_increment, self.angle_increment)
         freeze_laser = self.laser_data
 
-        weights = [   particle.get_lidar_prob(self.map, request_angles, freeze_laser) for particle in self.particles]
+        # weights = np.exp (np.array( [   particle.get_lidar_prob(self.map, request_angles, freeze_laser) for particle in self.particles]))
+        weights = np.array( [   particle.get_lidar_prob(self.map, request_angles, freeze_laser) for particle in self.particles])
+        # print weights
 
-        tot = sum(weights)
+        tot = np.sum(weights)
+        # print tot
+        if tot == 0:
+            weights = np.array( [   1 for particle in self.particles])
+            tot = np.sum(weights)
         self.weights = weights / tot
-        print self.weights
 
             
 
@@ -183,15 +191,15 @@ class ParticleFilter:
                     ind =( self.x_mean + d*math.cos(self.rot_mean+ angle), self.y_mean + d*math.sin(self.rot_mean + angle) )
 
                     if self.map[ind] == -1:
-                        self.map[ind] = 100
+                        self.map[ind] = 0
                     else:
-                        self.map[ind] *= 0.5
+                        self.map[ind] *= 0.2
                 
                 ind =( self.x_mean + dist*math.cos(self.rot_mean + angle), self.y_mean + dist*math.sin(self.rot_mean + angle) )
                 if self.map[ind] == -1:
-                    self.map[ind] = 0
+                    self.map[ind] = 100
                 else:
-                    self.map[ind] = 100 - (0.5 * (100 - self.map[ind]))
+                    self.map[ind] = 100 - (0.2 * (100 - self.map[ind]))
 
 
     def add_noise(self):
@@ -255,6 +263,10 @@ def main():
     pf = ParticleFilter()
 
     rospy.spin()
+    print 'here'
+
+
+
 
 if __name__ == '__main__':
     main()
