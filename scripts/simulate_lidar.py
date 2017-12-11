@@ -1,4 +1,3 @@
-import gi
 import numpy as np
 import math
 from gi.repository import Gtk
@@ -36,7 +35,7 @@ class Grid:
                 x += dx
                 y += dy
 
-            distances[i] = disp #+ np.random.normal(scale = 0.8)
+            distances[i] = disp
         return distances
 
     def get_observation(self):
@@ -49,7 +48,8 @@ class Grid:
         return inds[self.grid != 1]
 
     def move(self):
-        self.rot = np.random.normal(loc=self.rot, scale=math.pi/8)
+        dtheta = np.random.normal(scale=math.pi/8)
+        self.rot = self.rot + dtheta
         r = np.random.randint(3, 10)
         dx = math.cos(self.rot)
         dy = math.sin(self.rot)
@@ -88,12 +88,11 @@ class ParticleFilter:
             p_dists = self.map.observe_lidar(self.particles[:, p])
             self.weights[p] = np.linalg.norm(dists - p_dists)
 
-        self.weights[p] = norm(0, 100).pdf(self.weights[p])
-        #max_w = np.amax(self.weights)
-        #self.weights = max_w - self.weights
+        #self.weights[p] = norm(0, 100).pdf(self.weights[p])
+        max_w = np.amax(self.weights)
+        self.weights = max_w - self.weights
         tot = np.sum(self.weights)
         self.weights = self.weights / tot
-        print(self.weights)
 
     def resample_particles(self):
         new_ind = np.random.choice(np.arange(self.num_p), p = self.weights, size = self.num_p)
@@ -107,7 +106,7 @@ class ParticleFilter:
         self.particles = new_part + noise
 
     def step(self):
-        #self.map.move()
+        self.map.move()
         self.calc_weights()
         self.resample_particles()
         corr = np.empty((2, 1))
