@@ -2,6 +2,7 @@ import gi
 import numpy as np
 import math
 from gi.repository import Gtk
+from scipy.stats import norm
 
 class Grid:
     def __init__(self, m, n, num_theta, max_r):
@@ -87,10 +88,12 @@ class ParticleFilter:
             p_dists = self.map.observe_lidar(self.particles[:, p])
             self.weights[p] = np.linalg.norm(dists - p_dists)
 
-        max_w = np.amax(self.weights)
-        self.weights = max_w - self.weights
+        self.weights[p] = norm(0, 100).pdf(self.weights[p])
+        #max_w = np.amax(self.weights)
+        #self.weights = max_w - self.weights
         tot = np.sum(self.weights)
         self.weights = self.weights / tot
+        print(self.weights)
 
     def resample_particles(self):
         new_ind = np.random.choice(np.arange(self.num_p), p = self.weights, size = self.num_p)
@@ -116,6 +119,7 @@ class ParticleFilter:
             if np.linalg.norm(diff) < min_value:
                 min_value = np.linalg.norm(diff)
         print(min_value)
+        
         """
         print(self.map.loc)
         print(self.map.rot)
@@ -126,16 +130,13 @@ class ParticleFilter:
         """
 
 class MapWindow(Gtk.Window):
-
     def __init__(self):
         Gtk.Window.__init__(self, title="Map Comparison")
         
-
 def main():
     pfilter = ParticleFilter(100, 100, 1000, 100, 8)
     for x in range(20):
         pfilter.step()
-    
 
 if __name__ == "__main__":
     main()
