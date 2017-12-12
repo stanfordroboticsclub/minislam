@@ -3,4 +3,4 @@ Particle filter based slam for teaching purposes. Generated maps aren't ideal bu
 
 #Example output
 
-![map produced by minislam](https://github.com/stanfordroboticsclub/minislam/images/minislam2.png "Map")
+![map produced by minislam](https://github.com/stanfordroboticsclub/minislam/blob/master/images/minislam2.png "Map")
